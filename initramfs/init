@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Monter les systèmes nécessaires si besoin (ex: /proc, /sys), ici on fait simple
+
+# Exécuter ton script e.sh s'il est présent
+if [ -x /e.sh ]; then
+    /e.sh
+else
+    echo "Erreur : /e.sh introuvable ou non exécutable"
+fi
+
+# Lancer un shell en fallback
+exec /bin/sh
