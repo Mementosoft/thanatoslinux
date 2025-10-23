@@ -1,13 +1,74 @@
 #!/bin/sh
 
-# Monter les systèmes nécessaires si besoin (ex: /proc, /sys), ici on fait simple
+echo "Starting init..."
 
-# Exécuter ton script e.sh s'il est présent
-if [ -x /e.sh ]; then
-    /e.sh
+# Préparer /dev
+mkdir -p /dev
+
+echo "=============================="
+echo "       INITRAMFS START        "
+echo "        WELCOME USER!         "
+echo "        THANATOS 0.1.60       "
+echo "=============================="
+
+# Préférer devtmpfs si disponible, sinon créer manuellement les devices
+if mount -t devtmpfs devtmpfs /dev 2>/dev/null; then
+  echo "devtmpfs mounted on /dev"
 else
-    echo "Erreur : /e.sh introuvable ou non exécutable"
+  echo "devtmpfs unavailable -> creating device nodes"
+  mknod -m 666 /dev/null c 1 3
+  mknod -m 666 /dev/zero c 1 5
+  mknod -m 600 /dev/console c 5 1
+  mknod -m 666 /dev/tty c 5 0
+  for i in 1 2 3 4; do
+    mknod -m 666 /dev/tty$i c 4 $i
+  done
 fi
 
-# Lancer un shell en fallback
-exec /bin/sh
+echo "Adding extra paths to PATH"
+export PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/THANATOS/bin:/etc
+
+chmod 600 /dev/tty* 2>/dev/null || true
+
+# Monter les systèmes virtuels
+mount -t proc none /proc 2>/dev/null || echo "proc mount failed"
+mount -t sysfs none /sys 2>/dev/null || echo "sysfs mount failed"
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null || echo "devpts mount failed or not required"
+
+# Exécuter /e.sh si présent
+if [ -x /e.sh ]; then
+  echo "/e.sh found, executing..."
+  /e.sh || echo "/e.sh exited with non-zero status"
+else
+  echo "Warning: /e.sh not found or not executable"
+fi
+
+# Shell de fallback
+echo "Launching fallback shell..."
+
+clear
+echo " ,----,                                                                                  "
+echo "      ,/   .\`|                                                            ,----..               "
+echo "    ,\`   .'  :  ,---,                                           ___      /   /   \\   .--.--.    "
+echo "  ;    ;     /,--.' |                                         ,--.'|_   /   .     : /  /    '.  "
+echo ".'___,/    ,' |  |  :                      ,---,              |  | :,' .   /   ;.  \\  :  /\`. /  "
+echo "|    :     |  :  :  :                  ,-+-. /  |             :  : ' :.   ;   /  \` ;  |  |--\`   "
+echo ";    |.';  ;  :  |  |,--.  ,--.--.    ,--.'|'   |  ,--.--.  .;__,'  / ;   |  ; \\ ; |  :  ;_     "
+echo "\`----'  |  |  |  :  '   | /       \\  |   |  ,\"' | /       \\ |  |   |  |   :  | ; | '\\  \\    \`.  "
+echo "    '   :  ;  |  |   /' :.--.  .-. | |   | /  | |.--.  .-. |:__,'| :  .   |  ' ' ' : \`----.   \\ "
+echo "    |   |  '  '  :  | | | \\__\\/:\ . . |   | |  | | \\__\\/:\ . .  '  : |__'   ;  \\; /  | __ \\  \\  | "
+echo "    '   :  |  |  |  ' | : ,\" .--.; | |   | |  |/  ,\" .--.; |  |  | '.'|\\   \\  ',  / /  /\`--'  / "
+echo "    ;   |.'   |  :  :_:,'/  /  ,.  | |   | |--'  /  /  ,.  |  ;  :    ; ;   :    / '--'.     /  "
+echo "    '---'     |  | ,'   ;  :   .'   \\|   |/     ;  :   .'   \\ |  ,   /   \\   \\ .'    \`--'---'   "
+echo "              \`--''     |  ,     .-./'---'      |  ,     .-./  ---\`-'     \`---\`                 "
+echo "                         \`--\`---'                \`--\`---'                                       "
+echo ""
+echo "======================================================================"
+echo "        Welcome to ThanatOS 0.1.60 — Proudly made by MementoSoft"
+echo "        Yeah the OS is still in alpha, but feel free to explore!"
+echo "======================================================================"
+
+exec setsid /bin/sh
+
+/bin/sh
