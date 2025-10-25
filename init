@@ -1,0 +1,84 @@
+#!/bin/sh
+set -x
+
+[ -f /tmp/init.lock ] && exit 0
+touch /tmp/init.lock
+[ -e /etc/mtab ] || ln -s /proc/self/mounts /etc/mtab
+echo "Starting init..."
+
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts
+
+# Préparer /dev
+mkdir -p /dev
+
+echo "=============================="
+echo "       INITRAMFS START        "
+echo "        WELCOME USER!         "
+echo "        THANATOS 0.1.60       "
+echo "=============================="
+
+# Préférer devtmpfs si disponible, sinon créer manuellement les devices
+if mount -t devtmpfs devtmpfs /dev 2>/dev/null; then
+  echo "devtmpfs mounted on /dev"
+else
+  echo "devtmpfs unavailable -> creating device nodes"
+  mknod -m 622 /dev/tty1 c 4 1
+  mknod -m 666 /dev/null c 1 3
+  mknod -m 666 /dev/zero c 1 5 
+  mknod -m 622 /dev/tty1 c 4 1 2>/dev/console
+  mknod -m 666 /dev/tty c 5 0
+  for i in 1 2 3 4; do
+    mknod -m 666 /dev/tty$i c 4 $i
+  done
+fi
+
+# 1. Créer /dev
+mkdir -p /dev
+
+# 2. Monter devtmpfs
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || echo "devtmpfs failed"
+
+# 3. Créer /dev/pts et monter devpts
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts || echo "devpts mount failed"
+
+
+echo "Adding extra paths to PATH"
+export PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/THANATOS:/etc:/thanx86_64:/shells
+
+chmod 600 /dev/tty* 2>/dev/null || true
+
+# Monter les systèmes virtuels
+mount -t proc none /proc 2>/dev/null || echo "proc mount failed"
+mount -t sysfs none /sys 2>/dev/null || echo "sysfs mount failed"
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null || echo "devpts mount failed or not required"
+
+
+# Shell de fallback
+echo "Launching fallback shell..."
+
+clear
+
+echo "======================================================================"
+echo "        Welcome to ThanatOS 0.1.60 — Proudly made by MementoSoft"
+echo "        Yeah the OS is still in alpha, but feel free to explore!"
+echo "======================================================================"
+
+if [ -x /shells/e.sh ]; then
+  echo "/fix-mtab.sh found, executing..."
+  /shells/e.sh || echo "/e.sh exited with non-zero status"
+else
+  echo "Warning: /e.sh not found or not executable"
+fi
+
+# Exécuter /e.sh si présent
+if [ -x /shells/e.sh ]; then
+  echo "/e.sh found, executing..."
+  /shells/e.sh || echo "/e.sh exited with non-zero status"
+else
+  echo "Warning: /e.sh not found or not executable"
+fi
+
+exec setsid sh -c 'exec sh </dev/tty1 >/dev/tty1 2>&1'
